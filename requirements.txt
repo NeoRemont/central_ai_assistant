@@ -1,4 +1,6 @@
 fastapi
-uvicorn
-requests
+pyTelegramBotAPI
 openai
+requests
+uvicorn
+python-dotenv
