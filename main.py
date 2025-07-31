@@ -1,55 +1,42 @@
 from fastapi import FastAPI, Request
+import requests
 import os
 import openai
-import httpx
-import asyncio
 
 app = FastAPI()
 
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GPT_MODEL = os.getenv("GPT_MODEL", "gpt-3.5-turbo")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 openai.api_key = OPENAI_API_KEY
 
-@app.get("/")
-async def root():
-    return {"status": "ok"}
+@app.on_event("startup")
+async def set_webhook():
+    if TELEGRAM_BOT_TOKEN and WEBHOOK_URL:
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/setWebhook"
+        requests.post(url, json={"url": WEBHOOK_URL})
 
 @app.post("/webhook")
-async def telegram_webhook(req: Request):
-    body = await req.json()
-    message = body.get("message", {})
-    chat_id = message.get("chat", {}).get("id")
-    text = message.get("text")
+async def telegram_webhook(request: Request):
+    data = await request.json()
+    message = data.get("message", {}).get("text", "")
+    chat_id = data.get("message", {}).get("chat", {}).get("id")
 
-    if not chat_id or not text:
-        return {"status": "ignored"}
+    if message and chat_id:
+        try:
+            gpt_response = openai.ChatCompletion.create(
+                model=GPT_MODEL,
+                messages=[{"role": "user", "content": message}]
+            )
+            answer = gpt_response["choices"][0]["message"]["content"]
+        except Exception as e:
+            answer = "Ошибка GPT: " + str(e)
 
-    try:
-        gpt_response = await ask_gpt(text)
-        await send_telegram_message(chat_id, gpt_response)
-    except Exception as e:
-        await send_telegram_message(chat_id, "Ошибка обработки запроса.")
+        requests.post(
+            f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+            json={"chat_id": chat_id, "text": answer}
+        )
 
-    return {"status": "ok"}
-
-async def ask_gpt(prompt: str) -> str:
-    response = await openai.ChatCompletion.acreate(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return response.choices[0].message.content
-
-async def send_telegram_message(chat_id: int, text: str):
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": chat_id, "text": text}
-    async with httpx.AsyncClient() as client:
-        await client.post(url, json=payload)
-
-@app.on_event("startup")
-async def startup_event():
-    if BOT_TOKEN and WEBHOOK_URL:
-        url = f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook"
-        async with httpx.AsyncClient() as client:
-            await client.post(url, params={"url": WEBHOOK_URL})
+    return {"ok": True}
