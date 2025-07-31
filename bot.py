@@ -1,24 +1,24 @@
 import os
 import requests
-import openai
+from gpt import generate_gpt_response
 
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-openai.api_key = OPENAI_API_KEY
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+GPT_MODEL = os.getenv("GPT_MODEL", "gpt-4-turbo")
+
+async def telegram_webhook(data):
+    message = data.get("message")
+    if not message:
+        return {"ok": True}
+
+    chat_id = message["chat"]["id"]
+    user_text = message.get("text", "")
+
+    reply = await generate_gpt_response(user_text, GPT_MODEL)
+    send_message(chat_id, reply)
+
+    return {"ok": True}
 
 def send_message(chat_id, text):
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    requests.post(url, json={"chat_id": chat_id, "text": text})
-
-async def process_telegram_update(data):
-    message = data.get("message", {})
-    chat_id = message.get("chat", {}).get("id")
-    text = message.get("text")
-
-    if chat_id and text:
-        gpt_response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[{"role": "user", "content": text}]
-        )
-        answer = gpt_response["choices"][0]["message"]["content"]
-        send_message(chat_id, answer)
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    payload = {"chat_id": chat_id, "text": text}
+    requests.post(url, json=payload)
