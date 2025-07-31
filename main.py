@@ -1,54 +1,59 @@
-import os
-import openai
-from fastapi import FastAPI, Request
-import uvicorn
-import telegram
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-import asyncio
 
-TOKEN = os.getenv("TELEGRAM_TOKEN")
-GPT_MODEL = os.getenv("GPT_MODEL", "gpt-4-turbo")
+import os
+import telebot
+import openai
+import requests
+import tempfile
+from pydub import AudioSegment
+from dotenv import load_dotenv
+
+load_dotenv()
+
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+bot = telebot.TeleBot(TELEGRAM_TOKEN)
+openai.api_key = OPENAI_API_KEY
 
-app = FastAPI()
-bot_app = None
+# Webhook установка при старте
+if WEBHOOK_URL:
+    bot.remove_webhook()
+    bot.set_webhook(url=WEBHOOK_URL)
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Нейроассистент готов!")
+def transcribe_voice(file_path):
+    audio = open(file_path, "rb")
+    transcript = openai.Audio.transcribe("whisper-1", audio)
+    return transcript["text"]
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_message = update.message.text
-    if not user_message:
-        return
+def ask_gpt(message_text):
+    response = openai.ChatCompletion.create(
+        model="gpt-4-turbo",
+        messages=[{"role": "user", "content": message_text}]
+    )
+    return response["choices"][0]["message"]["content"]
+
+@bot.message_handler(content_types=['text'])
+def handle_text(message):
+    reply = ask_gpt(message.text)
+    bot.send_message(message.chat.id, reply)
+
+@bot.message_handler(content_types=['voice'])
+def handle_voice(message):
     try:
-        completion = openai.ChatCompletion.create(
-            model=GPT_MODEL,
-            messages=[{"role": "user", "content": user_message}]
-        )
-        reply = completion.choices[0].message.content
+        file_info = bot.get_file(message.voice.file_id)
+        file_data = bot.download_file(file_info.file_path)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".ogg") as f:
+            f.write(file_data)
+            ogg_path = f.name
+
+        wav_path = ogg_path.replace(".ogg", ".wav")
+        AudioSegment.from_ogg(ogg_path).export(wav_path, format="wav")
+
+        prompt = transcribe_voice(wav_path)
+        reply = ask_gpt(prompt)
+        bot.send_message(message.chat.id, reply)
     except Exception as e:
-        reply = "Произошла ошибка при обращении к GPT."
-    await update.message.reply_text(reply)
+        bot.send_message(message.chat.id, f"Ошибка обработки голосового: {e}")
 
-@app.on_event("startup")
-async def startup_event():
-    global bot_app
-    bot_app = Application.builder().token(TOKEN).build()
-    bot_app.add_handler(CommandHandler("start", start))
-    bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    await bot_app.initialize()
-    await bot_app.bot.set_webhook(WEBHOOK_URL)
-    asyncio.create_task(bot_app.start())
-
-@app.post("/")
-async def telegram_webhook(request: Request):
-    data = await request.json()
-    update = telegram.Update.de_json(data, bot_app.bot)
-    await bot_app.process_update(update)
-    return {"ok": True}
-
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000)
+bot.infinity_polling()
