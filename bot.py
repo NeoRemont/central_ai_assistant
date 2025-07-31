@@ -1,24 +1,24 @@
 import os
+import telebot
 import requests
-from gpt import generate_gpt_response
+from gpt import ask_gpt
+from whisper_api import transcribe_voice
 
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-GPT_MODEL = os.getenv("GPT_MODEL", "gpt-4-turbo")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+bot = telebot.TeleBot(TELEGRAM_TOKEN)
 
-async def telegram_webhook(data):
-    message = data.get("message")
-    if not message:
-        return {"ok": True}
+@bot.message_handler(content_types=['text'])
+def handle_text(message):
+    reply = ask_gpt(message.text)
+    bot.send_message(message.chat.id, reply)
 
-    chat_id = message["chat"]["id"]
-    user_text = message.get("text", "")
+@bot.message_handler(content_types=['voice'])
+def handle_voice(message):
+    file_info = bot.get_file(message.voice.file_id)
+    file = requests.get(f'https://api.telegram.org/file/bot{TELEGRAM_TOKEN}/{file_info.file_path}')
+    transcript = transcribe_voice(file.content)
+    reply = ask_gpt(transcript)
+    bot.send_message(message.chat.id, reply)
 
-    reply = await generate_gpt_response(user_text, GPT_MODEL)
-    send_message(chat_id, reply)
-
-    return {"ok": True}
-
-def send_message(chat_id, text):
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": chat_id, "text": text}
-    requests.post(url, json=payload)
+async def start_bot():
+    bot.polling(none_stop=True)

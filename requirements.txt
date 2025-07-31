@@ -1,6 +1,6 @@
-
-pyTelegramBotAPI==4.14.0
-openai==1.14.3
-pydub==0.25.1
-python-dotenv==1.0.1
+fastapi
+pyTelegramBotAPI
+openai
 requests
+uvicorn
+python-dotenv
