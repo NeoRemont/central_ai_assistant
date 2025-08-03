@@ -1,6 +1,4 @@
 fastapi
 uvicorn
-python-dotenv
-python-telegram-bot==13.15
-openai>=1.0.0
-openai-whisper
+requests
+openai>=1.3.7
