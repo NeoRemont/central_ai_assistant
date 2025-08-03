@@ -1,19 +1,25 @@
 import os
 from openai import OpenAI
+from openai.types.chat import ChatCompletion
 
-api_key = os.getenv("OPENAI_API_KEY")
-client = OpenAI(api_key=api_key)
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def ask_gpt(prompt):
-    print("[DEBUG] Using OpenAI SDK version >=1.0.0 with GPT-4-Turbo model")
     try:
-        response = client.chat.completions.create(
-            model="gpt-4-turbo",
-            messages=[
-                {"role": "system", "content": "Ты — полезный помощник."},
-                {"role": "user", "content": prompt}
-            ]
+        print("=== GPT Запрос ===")
+        print("Промпт:", prompt)
+
+        completion: ChatCompletion = client.chat.completions.create(
+            model=os.getenv("GPT_MODEL", "gpt-4-turbo"),
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7
         )
-        return response.choices[0].message.content
+
+        answer = completion.choices[0].message.content
+        print("=== GPT Ответ ===")
+        print("Ответ:", answer)
+
+        return answer
     except Exception as e:
-        return f"[GPT ERROR] {str(e)}"
+        print("Ошибка GPT:", e)
+        return "Ошибка обработки запроса."
