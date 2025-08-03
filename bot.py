@@ -1,24 +1,25 @@
 import os
 import requests
-import openai
+from openai import OpenAI
 
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-openai.api_key = OPENAI_API_KEY
+GPT_MODEL = os.getenv("GPT_MODEL", "gpt-4-turbo")
+
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 def send_message(chat_id, text):
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     requests.post(url, json={"chat_id": chat_id, "text": text})
 
-async def process_telegram_update(data):
-    message = data.get("message", {})
-    chat_id = message.get("chat", {}).get("id")
-    text = message.get("text")
-
-    if chat_id and text:
-        gpt_response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[{"role": "user", "content": text}]
+def handle_message(chat_id, text):
+    try:
+        response = client.chat.completions.create(
+            model=GPT_MODEL,
+            messages=[{"role": "user", "content": text}],
+            temperature=0.7
         )
-        answer = gpt_response["choices"][0]["message"]["content"]
-        send_message(chat_id, answer)
+        answer = response.choices[0].message.content
+    except Exception as e:
+        answer = f"Ошибка GPT: {e}"
+    send_message(chat_id, answer)
