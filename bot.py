@@ -1,47 +1,56 @@
+
+import logging
 import os
-import requests
+import tempfile
 import subprocess
-from telegram import Update, Bot
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
-from gpt import ask_gpt
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+import openai
 from whisper_api import transcribe_audio
+from gpt import ask_gpt
+from imageio_ffmpeg import get_ffmpeg_exe
 
-TOKEN = os.getenv("TELEGRAM_TOKEN")
+# Настройка логгирования
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
-def start(update: Update, context: CallbackContext):
-    update.message.reply_text("Здравствуйте! Я Центральный Нейросотрудник. Жду ваш запрос.")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+FFMPEG_PATH = get_ffmpeg_exe()
 
-def handle_text(update: Update, context: CallbackContext):
-    user_message = update.message.text
-    gpt_reply = ask_gpt(user_message)
-    update.message.reply_text(gpt_reply)
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Привет! Я нейросотрудник. Жду твою команду.")
 
-def handle_voice(update: Update, context: CallbackContext):
-    file = update.message.voice.get_file()
-    ogg_path = "voice.ogg"
-    wav_path = "voice.wav"
-    file.download(ogg_path)
+async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_text = update.message.text
+    reply = await ask_gpt(user_text)
+    await update.message.reply_text(reply)
 
-    try:
-        subprocess.run(["ffmpeg", "-y", "-i", ogg_path, wav_path], check=True)
-        text = transcribe_audio(wav_path)
-        gpt_reply = ask_gpt(text)
-        update.message.reply_text(gpt_reply)
-    except Exception as e:
-        update.message.reply_text("Ошибка при распознавании голоса.")
-    finally:
-        if os.path.exists(ogg_path):
-            os.remove(ogg_path)
-        if os.path.exists(wav_path):
-            os.remove(wav_path)
+async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    voice = update.message.voice
+    file = await context.bot.get_file(voice.file_id)
 
-def run_bot():
-    updater = Updater(TOKEN, use_context=True)
-    dp = updater.dispatcher
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ogg_path = os.path.join(tmpdir, "voice.ogg")
+        wav_path = os.path.join(tmpdir, "voice.wav")
 
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_text))
-    dp.add_handler(MessageHandler(Filters.voice, handle_voice))
+        await file.download_to_drive(ogg_path)
 
-    updater.start_polling()
-    updater.idle()
+        subprocess.run([FFMPEG_PATH, "-y", "-i", ogg_path, wav_path], check=True)
+
+        transcript = transcribe_audio(wav_path)
+        reply = await ask_gpt(transcript)
+        await update.message.reply_text(reply)
+
+def main():
+    app = Application.builder().token(TELEGRAM_TOKEN).build()
+
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+    app.add_handler(MessageHandler(filters.VOICE, handle_voice))
+
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
