@@ -27,6 +27,12 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply = await ask_gpt(user_text)
     await update.message.reply_text(reply)
 
+
+from whisper_api import transcribe_audio
+import tempfile
+import subprocess
+import os
+
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     voice = update.message.voice
     file = await context.bot.get_file(voice.file_id)
@@ -36,19 +42,13 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         wav_path = os.path.join(tmpdir, "voice.wav")
 
         await file.download_to_drive(ogg_path)
-
-        subprocess.run([FFMPEG_PATH, "-y", "-i", ogg_path, wav_path], check=True)
+        subprocess.run(["ffmpeg", "-i", ogg_path, wav_path], check=True)
 
         transcript = transcribe_audio(wav_path)
-        reply = await ask_gpt(transcript)
-        await update.message.reply_text(reply)
+        await update.message.reply_text(transcript)
 
-def main():
-    app = Application.builder().token(TELEGRAM_TOKEN).build()
+app.add_handler(MessageHandler(filters.VOICE, handle_voice))
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-    app.add_handler(MessageHandler(filters.VOICE, handle_voice))
 
     app.run_polling()
 
