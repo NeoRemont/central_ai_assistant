@@ -1,12 +1,16 @@
 import os
-import openai
+from openai import OpenAI
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+WHISPER_MODEL = os.getenv("WHISPER_MODEL", "whisper-1")
 
-def transcribe_voice(audio_data):
-    response = openai.Audio.transcribe(
-        model="whisper-1",
-        file=("voice.ogg", audio_data, "audio/ogg"),
-        language=os.getenv("WHISPER_LANGUAGE", "ru")
-    )
-    return response["text"]
+def transcribe_voice(audio_bytes: bytes, filename: str = "voice.wav") -> str:
+    try:
+        result = client.audio.transcriptions.create(
+            model=WHISPER_MODEL,
+            file=(filename, audio_bytes, "audio/wav"),
+        )
+        return result.text
+    except Exception as e:
+        print("[ERROR][WHISPER]", e)
+        return ""

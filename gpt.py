@@ -2,18 +2,16 @@ import os
 from openai import OpenAI
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+DEFAULT_MODEL = os.getenv("GPT_MODEL", "gpt-4o-mini")
 
-def ask_gpt(prompt):
+def ask_gpt(prompt: str) -> str:
     try:
-        print("[DEBUG] GPT-4 Turbo prompt:", prompt)
-        completion = client.chat.completions.create(
-            model=os.getenv("GPT_MODEL", "gpt-4-turbo"),
+        resp = client.chat.completions.create(
+            model=DEFAULT_MODEL,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.7
+            temperature=0.7,
         )
-        answer = completion.choices[0].message.content
-        print("[DEBUG] GPT-4 Turbo answer:", answer)
-        return answer
+        return resp.choices[0].message.content
     except Exception as e:
-        print("[ERROR] GPT:", e)
+        print("[ERROR][GPT]", e)
         return "Ошибка обработки запроса."
