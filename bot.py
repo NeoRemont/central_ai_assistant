@@ -24,12 +24,40 @@ logging.basicConfig(
 
 # 🎙 Функция для распознавания речи через Whisper
 async def transcribe_voice(file_path: str) -> str:
+    try:
+        logging.info(f"📤 Отправляем {file_path} в Whisper API")
+        with open(file_path, "rb") as audio_file:
+            transcript = openai.Audio.transcribe("whisper-1", audio_file)
+            logging.info(f"📥 Whisper вернул: {transcript}")
+            return transcript["text"]
+    except Exception as e:
+        logging.exception("❌ Ошибка при расшифровке в Whisper")
+        return "[ошибка распознавания]"
     with open(file_path, "rb") as audio_file:
         transcript = openai.Audio.transcribe("whisper-1", audio_file)
         return transcript["text"]
 
 # 📥 Обработка голосовых сообщений
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        logging.info("🎧 Голос получен. Начинаем загрузку.")
+        voice_file = await context.bot.get_file(update.message.voice.file_id)
+        with tempfile.NamedTemporaryFile(suffix=".ogg", delete=False) as tmp_ogg:
+            await voice_file.download_to_drive(tmp_ogg.name)
+            logging.info(f"✅ Скачан в {tmp_ogg.name}")
+
+            sound = AudioSegment.from_ogg(tmp_ogg.name)
+            tmp_wav = tmp_ogg.name.replace(".ogg", ".wav")
+            sound.export(tmp_wav, format="wav")
+            logging.info(f"🔄 Конвертирован в {tmp_wav}")
+
+        text = await transcribe_voice(tmp_wav)
+        logging.info(f"🧠 Распознанный текст: {text}")
+        await process_text(update, context, text)
+
+    except Exception as e:
+        logging.exception("❌ Ошибка в handle_voice:")
+        await update.message.reply_text("Ошибка при обработке голосового сообщения.")
     try:
         # Скачиваем голосовое сообщение
         voice_file = await context.bot.get_file(update.message.voice.file_id)
