@@ -14,4 +14,4 @@ async def startup_event():
     asyncio.create_task(run_bot())  # Запускаем Telegram-бота параллельно с FastAPI
 
 if __name__ == "__main__":
-    uvicorn.run("main_combined:app", host="0.0.0.0", port=10000)
+    uvicorn.run("main:app", host="0.0.0.0", port=10000)
