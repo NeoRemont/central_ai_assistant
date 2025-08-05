@@ -1,12 +1,12 @@
 import os
-from openai import OpenAI
+from openai import AsyncOpenAI
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-DEFAULT_MODEL = os.getenv("GPT_MODEL", "gpt-4o-mini")
+client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+DEFAULT_MODEL = os.getenv("GPT_MODEL", "gpt-4o")
 
-def ask_gpt(prompt: str) -> str:
+async def ask_gpt(prompt: str) -> str:
     try:
-        resp = client.chat.completions.create(
+        resp = await client.chat.completions.create(
             model=DEFAULT_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
