@@ -12,7 +12,7 @@ from imageio_ffmpeg import get_ffmpeg_exe
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
-logger = logging.getLogger(_name_)
+logger = logging.getLogger(__name__)
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 FFMPEG_PATH = get_ffmpeg_exe()
