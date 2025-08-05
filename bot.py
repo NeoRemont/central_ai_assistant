@@ -22,7 +22,6 @@ FFMPEG_PATH = get_ffmpeg_exe()
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await update.message.reply_text("Привет! Я нейросотрудник. Жду твою команду.")
 
-
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("TEXT received")
     try:
@@ -32,12 +31,20 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logging.exception("Error in handle_text: %s", e)
 
-
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("VOICE received")
     try:
-    voice = update.message.voice
-    file = await context.bot.get_file(voice.file_id)
+        voice = update.message.voice
+        file = await context.bot.get_file(voice.file_id)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            ogg_path = os.path.join(tmpdir, "voice.ogg")
+            wav_path = os.path.join(tmpdir, "voice.wav")
+            await file.download_to_drive(ogg_path)
+            subprocess.run(["ffmpeg", "-i", ogg_path, wav_path], check=True)
+            transcript = transcribe_audio(wav_path)
+            await update.message.reply_text(transcript)
+    except Exception as e:
+        logging.exception("Error in handle_voice: %s", e)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         ogg_path = os.path.join(tmpdir, "voice.ogg")
