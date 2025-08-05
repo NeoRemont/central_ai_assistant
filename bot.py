@@ -39,7 +39,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             wav_path = os.path.join(tmpdir, "voice.wav")
             await file.download_to_drive(ogg_path)
             subprocess.run([FFMPEG_PATH, "-y", "-i", ogg_path, wav_path], check=True)
-            transcript = transcribe_audio(wav_path)
+            transcript = await transcribe_audio(wav_path)
             reply = await ask_gpt(transcript)
             await update.message.reply_text(reply)
     except Exception as e:
