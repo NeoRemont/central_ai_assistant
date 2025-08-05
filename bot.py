@@ -20,14 +20,18 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 FFMPEG_PATH = get_ffmpeg_exe()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Я нейросотрудник. Жду твою команду.")
+                    await update.message.reply_text("Привет! Я нейросотрудник. Жду твою команду.")
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("TEXT received")
+    try:
     user_text = update.message.text
     reply = await ask_gpt(user_text)
-    await update.message.reply_text(reply)
+                    await update.message.reply_text(reply)
 
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("VOICE received")
+    try:
     voice = update.message.voice
     file = await context.bot.get_file(voice.file_id)
 
@@ -39,11 +43,12 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         subprocess.run([FFMPEG_PATH, "-y", "-i", ogg_path, wav_path], check=True)
 
-        transcript = transcribe_audio(wav_path)
+                transcript = transcribe_audio(wav_path)
         reply = await ask_gpt(transcript)
-        await update.message.reply_text(reply)
+                        await update.message.reply_text(reply)
 
-def main():
+def print("Bot started")
+main():
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
@@ -53,4 +58,5 @@ def main():
     app.run_polling()
 
 if __name__ == "__main__":
-    main()
+    print("Bot started")
+main()
