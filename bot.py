@@ -22,12 +22,16 @@ FFMPEG_PATH = get_ffmpeg_exe()
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await update.message.reply_text("Привет! Я нейросотрудник. Жду твою команду.")
 
+
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("TEXT received")
     try:
-    user_text = update.message.text
-    reply = await ask_gpt(user_text)
-                    await update.message.reply_text(reply)
+        user_message = update.message.text
+        response = ask_gpt(user_message)
+        await update.message.reply_text(response)
+    except Exception as e:
+        logging.exception("Error in handle_text: %s", e)
+
 
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("VOICE received")
