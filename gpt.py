@@ -13,5 +13,5 @@ async def ask_gpt(prompt: str) -> str:
         )
         return resp.choices[0].message.content
     except Exception as e:
-        print("[ERROR][GPT]", e)
+        print("[ERROR][GPT]", repr(e))
         return "Ошибка обработки запроса."
