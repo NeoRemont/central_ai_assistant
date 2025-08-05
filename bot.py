@@ -54,9 +54,9 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         subprocess.run([FFMPEG_PATH, "-y", "-i", ogg_path, wav_path], check=True)
 
-                transcript = transcribe_audio(wav_path)
+        transcript = transcribe_audio(wav_path)
         reply = await ask_gpt(transcript)
-                        await update.message.reply_text(reply)
+        await update.message.reply_text(reply)
 
 def print("Bot started")
 main():
