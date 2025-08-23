@@ -1,4 +1,5 @@
 import logging
+from central_payouts_router import is_payouts_intent, route_command
 import os
 import tempfile
 import subprocess
@@ -24,6 +25,12 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("TEXT received")
     try:
         user_message = update.message.text
+        # --- payouts hook begin ---
+        if is_payouts_intent(user_message):
+            answer = route_command(user_message)
+            await update.message.reply_text(answer)
+            return
+        # --- payouts hook end ---
         response = await ask_gpt(user_message)
         await update.message.reply_text(response)
     except Exception as e:
